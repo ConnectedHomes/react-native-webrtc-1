@@ -2,6 +2,7 @@ package com.oney.WebRTCModule;
 
 import android.content.Context;
 import android.graphics.Point;
+import android.graphics.Color;
 import android.support.v4.view.ViewCompat;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,6 +21,12 @@ import org.webrtc.RendererCommon.RendererEvents;
 import org.webrtc.RendererCommon.ScalingType;
 import org.webrtc.VideoRenderer;
 import org.webrtc.VideoTrack;
+
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.Callback;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.uimanager.events.RCTEventEmitter;
 
 public class WebRTCView extends ViewGroup {
     /**
@@ -105,6 +112,7 @@ public class WebRTCView extends ViewGroup {
         = new RendererEvents() {
             @Override
             public void onFirstFrameRendered() {
+                WebRTCView.this.onFirstFrameRendered();
             }
 
             @Override
@@ -233,6 +241,30 @@ public class WebRTCView extends ViewGroup {
         } finally {
             super.onDetachedFromWindow();
         }
+    }
+
+    /**
+     * Callback fired by {@link #surfaceViewRenderer} when the first frame is
+     * rendered. Here we will set the background of the view part of the
+     * SurfaceView to transparent, so the surface (where video is actually
+     * rendered) shines through.
+     */
+    private void onFirstFrameRendered() {
+        post(new Runnable() {
+            @Override
+            public void run() {
+                Log.d(TAG, "First frame rendered.");
+
+                WritableMap event = Arguments.createMap();
+                ReactContext reactContext = (ReactContext) getContext();
+                reactContext.getJSModule(RCTEventEmitter.class).receiveEvent(
+                        getId(),
+                        "onFirstFrame",
+                        event
+                );
+                getSurfaceViewRenderer().setBackgroundColor(Color.TRANSPARENT);
+            }
+        });
     }
 
     /**
