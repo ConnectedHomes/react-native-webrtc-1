@@ -1,23 +1,28 @@
-package com.oney.WebRTCModule;
+/*
+ *  Copyright 2015 The WebRTC project authors. All Rights Reserved.
+ *
+ *  Use of this source code is governed by a BSD-style license
+ *  that can be found in the LICENSE file in the root of the source
+ *  tree. An additional intellectual property rights grant can be found
+ *  in the file PATENTS.  All contributing project authors may
+ *  be found in the AUTHORS file in the root of the source tree.
+ */
 
+package com.oney.WebRTCModule;
 
 import android.content.Context;
 import android.content.res.Resources.NotFoundException;
 import android.graphics.Point;
+import android.graphics.SurfaceTexture;
 import android.util.AttributeSet;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
-
+import android.view.TextureView;
 import org.webrtc.EglBase;
 import org.webrtc.EglRenderer;
 import org.webrtc.GlRectDrawer;
 import org.webrtc.Logging;
 import org.webrtc.RendererCommon;
 import org.webrtc.ThreadUtils;
-import org.webrtc.VideoFrame;
 import org.webrtc.VideoRenderer;
-import org.webrtc.VideoSink;
-
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -29,8 +34,8 @@ import java.util.concurrent.CountDownLatch;
  * Interaction from the Activity lifecycle in surfaceCreated, surfaceChanged, and surfaceDestroyed.
  * Interaction with the layout framework in onMeasure and onSizeChanged.
  */
-public class SurfaceViewRenderer
-        extends SurfaceView implements SurfaceHolder.Callback, VideoSink, IRenderer {
+public class TextureViewRenderer
+        extends TextureView implements TextureView.SurfaceTextureListener, IRenderer {
     private static final String TAG = "SurfaceViewRenderer";
 
     // Cached resource name.
@@ -49,29 +54,24 @@ public class SurfaceViewRenderer
     private int rotatedFrameHeight;
     private int frameRotation;
 
-    // Accessed only on the main thread.
-    private boolean enableFixedSize;
-    private int surfaceWidth;
-    private int surfaceHeight;
-
     /**
      * Standard View constructor. In order to render something, you must first call init().
      */
-    public SurfaceViewRenderer(Context context) {
+    public TextureViewRenderer(Context context) {
         super(context);
         this.resourceName = getResourceName();
         eglRenderer = new EglRenderer(resourceName);
-        getHolder().addCallback(this);
+        setSurfaceTextureListener(this);
     }
 
     /**
      * Standard View constructor. In order to render something, you must first call init().
      */
-    public SurfaceViewRenderer(Context context, AttributeSet attrs) {
+    public TextureViewRenderer(Context context, AttributeSet attrs) {
         super(context, attrs);
         this.resourceName = getResourceName();
         eglRenderer = new EglRenderer(resourceName);
-        getHolder().addCallback(this);
+        setSurfaceTextureListener(this);
     }
 
     /**
@@ -119,7 +119,7 @@ public class SurfaceViewRenderer
      *                 It should be lightweight and must not call removeFrameListener.
      * @param scale    The scale of the Bitmap passed to the callback, or 0 if no Bitmap is
      *                 required.
-     * @param drawerParam   Custom drawer to use for this frame listener.
+     * @param drawer   Custom drawer to use for this frame listener.
      */
     public void addFrameListener(
             EglRenderer.FrameListener listener, float scale, RendererCommon.GlDrawer drawerParam) {
@@ -144,21 +144,22 @@ public class SurfaceViewRenderer
     }
 
     /**
-     * Enables fixed size for the surface. This provides better performance but might be buggy on some
-     * devices. By default this is turned off.
-     */
-    public void setEnableHardwareScaler(boolean enabled) {
-        ThreadUtils.checkIsOnMainThread();
-        enableFixedSize = enabled;
-        updateSurfaceSize();
-    }
-
-    /**
      * Set if the video stream should be mirrored or not.
      */
     public void setMirror(final boolean mirror) {
         eglRenderer.setMirror(mirror);
     }
+
+    @Override
+    public void setZOrderMediaOverlay(boolean isMediaOverlay) {
+
+    }
+
+    @Override
+    public void setZOrderOnTop(boolean onTop) {
+
+    }
+
 
     /**
      * Set how the video will fill the allowed layout area.
@@ -210,13 +211,6 @@ public class SurfaceViewRenderer
         eglRenderer.renderFrame(frame);
     }
 
-    // VideoSink interface.
-    @Override
-    public void onFrame(VideoFrame frame) {
-        updateFrameDimensionsAndReportEvents(frame);
-        eglRenderer.onFrame(frame);
-    }
-
     // View layout interface.
     @Override
     protected void onMeasure(int widthSpec, int heightSpec) {
@@ -234,54 +228,26 @@ public class SurfaceViewRenderer
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         ThreadUtils.checkIsOnMainThread();
         eglRenderer.setLayoutAspectRatio((right - left) / (float) (bottom - top));
-        updateSurfaceSize();
-    }
-
-    private void updateSurfaceSize() {
-        ThreadUtils.checkIsOnMainThread();
-        synchronized (layoutLock) {
-            if (enableFixedSize && rotatedFrameWidth != 0 && rotatedFrameHeight != 0 && getWidth() != 0
-                    && getHeight() != 0) {
-                final float layoutAspectRatio = getWidth() / (float) getHeight();
-                final float frameAspectRatio = rotatedFrameWidth / (float) rotatedFrameHeight;
-                final int drawnFrameWidth;
-                final int drawnFrameHeight;
-                if (frameAspectRatio > layoutAspectRatio) {
-                    drawnFrameWidth = (int) (rotatedFrameHeight * layoutAspectRatio);
-                    drawnFrameHeight = rotatedFrameHeight;
-                } else {
-                    drawnFrameWidth = rotatedFrameWidth;
-                    drawnFrameHeight = (int) (rotatedFrameWidth / layoutAspectRatio);
-                }
-                // Aspect ratio of the drawn frame and the view is the same.
-                final int width = Math.min(getWidth(), drawnFrameWidth);
-                final int height = Math.min(getHeight(), drawnFrameHeight);
-                logD("updateSurfaceSize. Layout size: " + getWidth() + "x" + getHeight() + ", frame size: "
-                        + rotatedFrameWidth + "x" + rotatedFrameHeight + ", requested surface size: " + width
-                        + "x" + height + ", old surface size: " + surfaceWidth + "x" + surfaceHeight);
-                if (width != surfaceWidth || height != surfaceHeight) {
-                    surfaceWidth = width;
-                    surfaceHeight = height;
-                    getHolder().setFixedSize(width, height);
-                }
-            } else {
-                surfaceWidth = surfaceHeight = 0;
-                getHolder().setSizeFromLayout();
-            }
-        }
-    }
-
-    // SurfaceHolder.Callback interface.
-    @Override
-    public void surfaceCreated(final SurfaceHolder holder) {
-        ThreadUtils.checkIsOnMainThread();
-        eglRenderer.createEglSurface(holder.getSurface());
-        surfaceWidth = surfaceHeight = 0;
-        updateSurfaceSize();
     }
 
     @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
+    public void onSurfaceTextureAvailable(final SurfaceTexture surface, final int width,
+                                          final int height) {
+        logD("onSurfaceTextureAvailable: " + surface + " size: " + width + "x" + height);
+        ThreadUtils.checkIsOnMainThread();
+        eglRenderer.createEglSurface(surface);
+    }
+
+    @Override
+    public void onSurfaceTextureSizeChanged(final SurfaceTexture surface, final int width,
+                                            final int height) {
+        logD("onSurfaceTextureSizeChanged: " + surface + " size: " + width + "x" + height);
+        ThreadUtils.checkIsOnMainThread();
+    }
+
+    @Override
+    public boolean onSurfaceTextureDestroyed(final SurfaceTexture surface) {
+        logD("onSurfaceTextureDestroyed: " + surface);
         ThreadUtils.checkIsOnMainThread();
         final CountDownLatch completionLatch = new CountDownLatch(1);
         eglRenderer.releaseEglSurface(new Runnable() {
@@ -291,12 +257,11 @@ public class SurfaceViewRenderer
             }
         });
         ThreadUtils.awaitUninterruptibly(completionLatch);
+        return true;
     }
 
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        ThreadUtils.checkIsOnMainThread();
-        logD("surfaceChanged: format: " + format + " size: " + width + "x" + height);
+    public void onSurfaceTextureUpdated(final SurfaceTexture surface) {
     }
 
     private String getResourceName() {
@@ -340,43 +305,6 @@ public class SurfaceViewRenderer
                 post(new Runnable() {
                     @Override
                     public void run() {
-                        updateSurfaceSize();
-                        requestLayout();
-                    }
-                });
-            }
-        }
-    }
-
-    // Update frame dimensions and report any changes to |rendererEvents|.
-    private void updateFrameDimensionsAndReportEvents(VideoFrame frame) {
-        synchronized (layoutLock) {
-            if (isRenderingPaused) {
-                return;
-            }
-            if (!isFirstFrameRendered) {
-                isFirstFrameRendered = true;
-                logD("Reporting first rendered frame.");
-                if (rendererEvents != null) {
-                    rendererEvents.onFirstFrameRendered();
-                }
-            }
-            if (rotatedFrameWidth != frame.getRotatedWidth()
-                    || rotatedFrameHeight != frame.getRotatedHeight()
-                    || frameRotation != frame.getRotation()) {
-                logD("Reporting frame resolution changed to " + frame.getBuffer().getWidth() + "x"
-                        + frame.getBuffer().getHeight() + " with rotation " + frame.getRotation());
-                if (rendererEvents != null) {
-                    rendererEvents.onFrameResolutionChanged(
-                            frame.getBuffer().getWidth(), frame.getBuffer().getHeight(), frame.getRotation());
-                }
-                rotatedFrameWidth = frame.getRotatedWidth();
-                rotatedFrameHeight = frame.getRotatedHeight();
-                frameRotation = frame.getRotation();
-                post(new Runnable() {
-                    @Override
-                    public void run() {
-                        updateSurfaceSize();
                         requestLayout();
                     }
                 });
