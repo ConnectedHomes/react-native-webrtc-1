@@ -7,6 +7,7 @@ import android.support.v4.view.ViewCompat;
 import android.view.View;
 import android.view.ViewGroup;
 import android.util.Log;
+import android.view.animation.AnimationUtils;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -27,6 +28,52 @@ import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
+
+import static android.os.Build.VERSION.SDK_INT;
+
+
+class Throttle {
+
+    private long mLastFiredTimestamp;
+    private long mInterval;
+
+    public Throttle(long interval) {
+        mInterval = interval;
+    }
+
+    public void attempt(Runnable runnable) {
+        if (hasSatisfiedInterval()) {
+            runnable.run();
+            mLastFiredTimestamp = getNow();
+        }
+    }
+
+    private boolean hasSatisfiedInterval() {
+        long elapsed = getNow() - mLastFiredTimestamp;
+        return elapsed >= mInterval;
+    }
+
+    private long getNow() {
+        return AnimationUtils.currentAnimationTimeMillis();
+    }
+
+}
+
+class Debounce {
+
+    private Handler mHandler = new Handler();
+    private long mInterval;
+
+    public Debounce(long interval) {
+        mInterval = interval;
+    }
+
+    public void attempt(Runnable runnable) {
+        mHandler.removeCallbacks(runnable);
+        mHandler.postDelayed(runnable, mInterval);
+    }
+
+}
 
 public class WebRTCView extends ViewGroup {
     /**
@@ -241,6 +288,32 @@ public class WebRTCView extends ViewGroup {
         } finally {
             super.onDetachedFromWindow();
         }
+    }
+
+    private Debounce mThrottle = new Debounce(100);
+
+    @Override
+    public void setScaleX(final float scaleX) {
+        if (SDK_INT < 24) {
+            final WebRTCView self = this;
+
+            mThrottle.attempt(new Runnable() {
+                @Override
+                public void run() {
+                    final int l = self.getLeft();
+                    final int t = self.getTop();
+                    final int r = self.getRight();
+                    final int b = self.getBottom();
+
+                    final int w = Math.round((r-l) * scaleX);
+                    final int h = Math.round((b-t) * scaleX);
+
+                    self.onLayout(true, 0, 0, w, h);
+                    Log.d("###", ""+scaleX);
+                }
+            });
+        }
+        super.setScaleX(scaleX);
     }
 
     /**
