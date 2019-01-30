@@ -78,10 +78,10 @@ class Debounce {
 public class WebRTCView extends ViewGroup {
     /**
      * The scaling type to be utilized by default.
-     *
+     * <p>
      * The default value is in accord with
      * https://www.w3.org/TR/html5/embedded-content-0.html#the-video-element:
-     *
+     * <p>
      * In the absence of style rules to the contrary, video content should be
      * rendered inside the element's playback area such that the video content
      * is shown centered in the playback area at the largest possible size that
@@ -92,7 +92,7 @@ public class WebRTCView extends ViewGroup {
      * video represent nothing.
      */
     private static final ScalingType DEFAULT_SCALING_TYPE
-        = ScalingType.SCALE_ASPECT_FIT;
+            = ScalingType.SCALE_ASPECT_FIT;
 
     /**
      * {@link View#isInLayout()} as a <tt>Method</tt> to be invoked via
@@ -156,21 +156,21 @@ public class WebRTCView extends ViewGroup {
      * {@link #surfaceViewRenderer}.
      */
     private final RendererEvents rendererEvents
-        = new RendererEvents() {
-            @Override
-            public void onFirstFrameRendered() {
-                WebRTCView.this.onFirstFrameRendered();
-            }
+            = new RendererEvents() {
+        @Override
+        public void onFirstFrameRendered() {
+            WebRTCView.this.onFirstFrameRendered();
+        }
 
-            @Override
-            public void onFrameResolutionChanged(
-                    int videoWidth, int videoHeight,
-                    int rotation) {
-                WebRTCView.this.onFrameResolutionChanged(
-                        videoWidth, videoHeight,
-                        rotation);
-            }
-        };
+        @Override
+        public void onFrameResolutionChanged(
+                int videoWidth, int videoHeight,
+                int rotation) {
+            WebRTCView.this.onFrameResolutionChanged(
+                    videoWidth, videoHeight,
+                    rotation);
+        }
+    };
 
     /**
      * The {@code Runnable} representation of
@@ -179,12 +179,12 @@ public class WebRTCView extends ViewGroup {
      * initializing new instances on every (method) call.
      */
     private final Runnable requestSurfaceViewRendererLayoutRunnable
-        = new Runnable() {
-            @Override
-            public void run() {
-                requestSurfaceViewRendererLayout();
-            }
-        };
+            = new Runnable() {
+        @Override
+        public void run() {
+            requestSurfaceViewRendererLayout();
+        }
+    };
 
     /**
      * The scaling type this {@code WebRTCView} is to apply to the video
@@ -297,21 +297,16 @@ public class WebRTCView extends ViewGroup {
         if (SDK_INT < 24) {
             final WebRTCView self = this;
 
-            mThrottle.attempt(new Runnable() {
-                @Override
-                public void run() {
-                    final int l = self.getLeft();
-                    final int t = self.getTop();
-                    final int r = self.getRight();
-                    final int b = self.getBottom();
+            final int l = self.getLeft();
+            final int t = self.getTop();
+            final int r = self.getRight();
+            final int b = self.getBottom();
 
-                    final int w = Math.round((r-l) * scaleX);
-                    final int h = Math.round((b-t) * scaleX);
+            final int w = Math.round((r - l) * scaleX);
+            final int h = Math.round((b - t) * scaleX);
 
-                    self.onLayout(true, 0, 0, w, h);
-                    Log.d("###", ""+scaleX);
-                }
-            });
+            self.onLayout(true, 0, 0, w, h);
+            Log.d("###", "" + scaleX);
         }
         super.setScaleX(scaleX);
     }
@@ -344,9 +339,9 @@ public class WebRTCView extends ViewGroup {
      * Callback fired by {@link #surfaceViewRenderer} when the resolution or
      * rotation of the frame it renders has changed.
      *
-     * @param videoWidth The new width of the rendered video frame.
+     * @param videoWidth  The new width of the rendered video frame.
      * @param videoHeight The new height of the rendered video frame.
-     * @param rotation The new rotation of the rendered video frame.
+     * @param rotation    The new rotation of the rendered video frame.
      */
     private void onFrameResolutionChanged(
             int videoWidth, int videoHeight,
@@ -400,41 +395,41 @@ public class WebRTCView extends ViewGroup {
             SurfaceViewRenderer surfaceViewRenderer = getSurfaceViewRenderer();
 
             switch (scalingType) {
-            case SCALE_ASPECT_FILL:
-                // Fill this ViewGroup with surfaceViewRenderer and the latter
-                // will take care of filling itself with the video similarly to
-                // the cover value the CSS property object-fit.
-                r = width;
-                l = 0;
-                b = height;
-                t = 0;
-                break;
-            case SCALE_ASPECT_FIT:
-            default:
-                // Lay surfaceViewRenderer out inside this ViewGroup in accord
-                // with the contain value of the CSS property object-fit.
-                // SurfaceViewRenderer will fill itself with the video similarly
-                // to the cover or contain value of the CSS property object-fit
-                // (which will not matter, eventually).
-                if (frameHeight == 0 || frameWidth == 0) {
-                    l = t = r = b = 0;
-                } else {
-                    float frameAspectRatio
-                        = (frameRotation % 180 == 0)
-                            ? frameWidth / (float) frameHeight
-                            : frameHeight / (float) frameWidth;
-                    Point frameDisplaySize
-                        = RendererCommon.getDisplaySize(
+                case SCALE_ASPECT_FILL:
+                    // Fill this ViewGroup with surfaceViewRenderer and the latter
+                    // will take care of filling itself with the video similarly to
+                    // the cover value the CSS property object-fit.
+                    r = width;
+                    l = 0;
+                    b = height;
+                    t = 0;
+                    break;
+                case SCALE_ASPECT_FIT:
+                default:
+                    // Lay surfaceViewRenderer out inside this ViewGroup in accord
+                    // with the contain value of the CSS property object-fit.
+                    // SurfaceViewRenderer will fill itself with the video similarly
+                    // to the cover or contain value of the CSS property object-fit
+                    // (which will not matter, eventually).
+                    if (frameHeight == 0 || frameWidth == 0) {
+                        l = t = r = b = 0;
+                    } else {
+                        float frameAspectRatio
+                                = (frameRotation % 180 == 0)
+                                ? frameWidth / (float) frameHeight
+                                : frameHeight / (float) frameWidth;
+                        Point frameDisplaySize
+                                = RendererCommon.getDisplaySize(
                                 scalingType,
                                 frameAspectRatio,
                                 width, height);
 
-                    l = (width - frameDisplaySize.x) / 2;
-                    t = (height - frameDisplaySize.y) / 2;
-                    r = l + frameDisplaySize.x;
-                    b = t + frameDisplaySize.y;
-                }
-                break;
+                        l = (width - frameDisplaySize.x) / 2;
+                        t = (height - frameDisplaySize.y) / 2;
+                        r = l + frameDisplaySize.x;
+                        b = t + frameDisplaySize.y;
+                    }
+                    break;
             }
         }
         surfaceViewRenderer.layout(l, t, r, b);
@@ -486,8 +481,8 @@ public class WebRTCView extends ViewGroup {
      * mirror the video represented by {@link #videoTrack} during its rendering.
      *
      * @param mirror If this {@code WebRTCView} is to mirror the video
-     * represented by {@code videoTrack} during its rendering, {@code true};
-     * otherwise, {@code false}.
+     *               represented by {@code videoTrack} during its rendering, {@code true};
+     *               otherwise, {@code false}.
      */
     public void setMirror(boolean mirror) {
         if (this.mirror != mirror) {
@@ -509,12 +504,12 @@ public class WebRTCView extends ViewGroup {
      * resembles the CSS style {@code object-fit}.
      *
      * @param objectFit For details, refer to the documentation of the
-     * {@code objectFit} property of the JavaScript counterpart of
-     * {@code WebRTCView} i.e. {@code RTCView}.
+     *                  {@code objectFit} property of the JavaScript counterpart of
+     *                  {@code WebRTCView} i.e. {@code RTCView}.
      */
     public void setObjectFit(String objectFit) {
         ScalingType scalingType
-            = "cover".equals(objectFit)
+                = "cover".equals(objectFit)
                 ? ScalingType.SCALE_ASPECT_FILL
                 : ScalingType.SCALE_ASPECT_FIT;
 
@@ -565,7 +560,7 @@ public class WebRTCView extends ViewGroup {
      * Sets the {@code VideoTrack} to be rendered by this {@code WebRTCView}.
      *
      * @param videoTrack The {@code VideoTrack} to be rendered by this
-     * {@code WebRTCView} or {@code null}.
+     *                   {@code WebRTCView} or {@code null}.
      */
     private void setVideoTrack(VideoTrack videoTrack) {
         VideoTrack oldValue = this.videoTrack;
