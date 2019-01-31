@@ -1,8 +1,10 @@
 package com.oney.WebRTCModule;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Point;
 import android.graphics.Color;
+import android.os.Build;
 import android.support.v4.view.ViewCompat;
 import android.view.View;
 import android.view.ViewGroup;
@@ -188,8 +190,8 @@ public class WebRTCView extends ViewGroup {
      *
      * @return The {@code SurfaceViewRenderer} which renders {@code videoTrack}.
      */
-    private final SurfaceViewRenderer getSurfaceViewRenderer() {
-        return surfaceViewRenderer;
+    private final IRenderer getRenderer() {
+        return renderer;
     }
 
     /**
@@ -330,8 +332,6 @@ public class WebRTCView extends ViewGroup {
                 scalingType = this.scalingType;
             }
 
-            SurfaceViewRenderer surfaceViewRenderer = getSurfaceViewRenderer();
-
             switch (scalingType) {
             case SCALE_ASPECT_FILL:
                 // Fill this ViewGroup with surfaceViewRenderer and the latter
@@ -370,7 +370,7 @@ public class WebRTCView extends ViewGroup {
                 break;
             }
         }
-        surfaceViewRenderer.layout(l, t, r, b);
+        getRenderer().layout(l, t, r, b);
     }
 
     /**
@@ -525,17 +525,17 @@ public class WebRTCView extends ViewGroup {
      * @param zOrder The z-order to set on this {@code WebRTCView}.
      */
     public void setZOrder(int zOrder) {
-        SurfaceViewRenderer surfaceViewRenderer = getSurfaceViewRenderer();
+        IRenderer renderer = getRenderer();
 
         switch (zOrder) {
         case 0:
-            surfaceViewRenderer.setZOrderMediaOverlay(false);
+            renderer.setZOrderMediaOverlay(false);
             break;
         case 1:
-            surfaceViewRenderer.setZOrderMediaOverlay(true);
+            renderer.setZOrderMediaOverlay(true);
             break;
         case 2:
-            surfaceViewRenderer.setZOrderOnTop(true);
+            renderer.setZOrderOnTop(true);
             break;
         }
     }
@@ -548,7 +548,7 @@ public class WebRTCView extends ViewGroup {
         if (videoRenderer == null
                 && videoTrack != null
                 && ViewCompat.isAttachedToWindow(this)) {
-            SurfaceViewRenderer surfaceViewRenderer = getSurfaceViewRenderer();
+            IRenderer renderer = getRenderer();
 
             // XXX EglBase14 will report that isEGL14Supported() but its
             // getEglConfig() will fail with a RuntimeException with message
@@ -591,9 +591,9 @@ public class WebRTCView extends ViewGroup {
             // EglBase implementation to utilize.
             EglBase.Context sharedContext = eglBase.getEglBaseContext();
 
-            surfaceViewRenderer.init(sharedContext, rendererEvents);
+            renderer.init(sharedContext, rendererEvents);
 
-            videoRenderer = new VideoRenderer(surfaceViewRenderer);
+            videoRenderer = new VideoRenderer(renderer);
             videoTrack.addRenderer(videoRenderer);
         }
     }
