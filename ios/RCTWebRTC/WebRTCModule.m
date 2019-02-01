@@ -52,6 +52,11 @@
   _peerConnectionFactory = nil;
 }
 
++ (BOOL)requiresMainQueueSetup
+{
+    return YES;
+}
+
 RCT_EXPORT_MODULE();
 
 - (dispatch_queue_t)methodQueue

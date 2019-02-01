@@ -1,7 +1,10 @@
 package com.oney.WebRTCModule;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Point;
+import android.graphics.Color;
+import android.os.Build;
 import android.support.v4.view.ViewCompat;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,7 +24,17 @@ import org.webrtc.RendererCommon.ScalingType;
 import org.webrtc.VideoRenderer;
 import org.webrtc.VideoTrack;
 
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.Callback;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.uimanager.events.RCTEventEmitter;
+
+import static android.os.Build.VERSION.SDK_INT;
+
 public class WebRTCView extends ViewGroup {
+
+    public final boolean isSurfaceRendererWorksFine = SDK_INT > 23;
     /**
      * The scaling type to be utilized by default.
      *
@@ -68,19 +81,19 @@ public class WebRTCView extends ViewGroup {
 
     /**
      * The height of the last video frame rendered by
-     * {@link #surfaceViewRenderer}.
+     * {@link #renderer}.
      */
     private int frameHeight;
 
     /**
      * The rotation (degree) of the last video frame rendered by
-     * {@link #surfaceViewRenderer}.
+     * {@link #renderer}.
      */
     private int frameRotation;
 
     /**
      * The width of the last video frame rendered by
-     * {@link #surfaceViewRenderer}.
+     * {@link #renderer}.
      */
     private int frameWidth;
 
@@ -99,12 +112,13 @@ public class WebRTCView extends ViewGroup {
 
     /**
      * The {@code RendererEvents} which listens to rendering events reported by
-     * {@link #surfaceViewRenderer}.
+     * {@link #renderer}.
      */
     private final RendererEvents rendererEvents
         = new RendererEvents() {
             @Override
             public void onFirstFrameRendered() {
+                WebRTCView.this.onFirstFrameRendered();
             }
 
             @Override
@@ -142,7 +156,7 @@ public class WebRTCView extends ViewGroup {
      * The {@link View} and {@link VideoRenderer#Callbacks} implementation which
      * actually renders {@link #videoTrack} on behalf of this instance.
      */
-    private final SurfaceViewRenderer surfaceViewRenderer;
+    private final IRenderer renderer;
 
     /**
      * The {@code VideoRenderer}, if any, which renders {@link #videoTrack} on
@@ -158,8 +172,9 @@ public class WebRTCView extends ViewGroup {
     public WebRTCView(Context context) {
         super(context);
 
-        surfaceViewRenderer = new SurfaceViewRenderer(context);
-        addView(surfaceViewRenderer);
+
+        renderer = isSurfaceRendererWorksFine ? new SurfaceViewRenderer(context) : new TextureViewRenderer(context);
+        addView((View)renderer);
 
         setMirror(false);
         setScalingType(DEFAULT_SCALING_TYPE);
@@ -175,8 +190,8 @@ public class WebRTCView extends ViewGroup {
      *
      * @return The {@code SurfaceViewRenderer} which renders {@code videoTrack}.
      */
-    private final SurfaceViewRenderer getSurfaceViewRenderer() {
-        return surfaceViewRenderer;
+    private final IRenderer getRenderer() {
+        return renderer;
     }
 
     /**
@@ -187,6 +202,7 @@ public class WebRTCView extends ViewGroup {
      * @return If this <tt>View</tt> has <tt>View#isInLayout()</tt>, invokes it
      * and returns its return value; otherwise, returns <tt>false</tt>.
      */
+    @TargetApi(Build.VERSION_CODES.KITKAT)
     private boolean invokeIsInLayout() {
         Method m = IS_IN_LAYOUT;
         boolean b = false;
@@ -236,7 +252,31 @@ public class WebRTCView extends ViewGroup {
     }
 
     /**
-     * Callback fired by {@link #surfaceViewRenderer} when the resolution or
+     * Callback fired by {@link #renderer} when the first frame is
+     * rendered. Here we will set the background of the view part of the
+     * SurfaceView to transparent, so the surface (where video is actually
+     * rendered) shines through.
+     */
+    private void onFirstFrameRendered() {
+        post(new Runnable() {
+            @Override
+            public void run() {
+                Log.d(TAG, "First frame rendered.");
+
+                WritableMap event = Arguments.createMap();
+                ReactContext reactContext = (ReactContext) getContext();
+                reactContext.getJSModule(RCTEventEmitter.class).receiveEvent(
+                        getId(),
+                        "onFirstFrame",
+                        event
+                );
+                getRenderer().setBackgroundColor(Color.TRANSPARENT);
+            }
+        });
+    }
+
+    /**
+     * Callback fired by {@link #renderer} when the resolution or
      * rotation of the frame it renders has changed.
      *
      * @param videoWidth The new width of the rendered video frame.
@@ -292,8 +332,6 @@ public class WebRTCView extends ViewGroup {
                 scalingType = this.scalingType;
             }
 
-            SurfaceViewRenderer surfaceViewRenderer = getSurfaceViewRenderer();
-
             switch (scalingType) {
             case SCALE_ASPECT_FILL:
                 // Fill this ViewGroup with surfaceViewRenderer and the latter
@@ -332,7 +370,7 @@ public class WebRTCView extends ViewGroup {
                 break;
             }
         }
-        surfaceViewRenderer.layout(l, t, r, b);
+        getRenderer().layout(l, t, r, b);
     }
 
     /**
@@ -345,7 +383,7 @@ public class WebRTCView extends ViewGroup {
             videoRenderer.dispose();
             videoRenderer = null;
 
-            getSurfaceViewRenderer().release();
+            getRenderer().release();
 
             // Since this WebRTCView is no longer rendering anything, make sure
             // surfaceViewRenderer displays nothing as well.
@@ -359,20 +397,20 @@ public class WebRTCView extends ViewGroup {
     }
 
     /**
-     * Request that {@link #surfaceViewRenderer} be laid out (as soon as
+     * Request that {@link #renderer} be laid out (as soon as
      * possible) because layout-related state either of this instance or of
      * {@code surfaceViewRenderer} has changed.
      */
     private void requestSurfaceViewRendererLayout() {
         // Google/WebRTC just call requestLayout() on surfaceViewRenderer when
         // they change the value of its mirror or surfaceType property. 
-        getSurfaceViewRenderer().requestLayout();
+        getRenderer().requestLayout();
         // The above is not enough though when the video frame's dimensions or
         // rotation change. The following will suffice.
         if (!invokeIsInLayout()) {
             onLayout(
-                    /* changed */ false,
-                    getLeft(), getTop(), getRight(), getBottom());
+                /* changed */ false,
+                getLeft(), getTop(), getRight(), getBottom());
         }
     }
 
@@ -388,9 +426,9 @@ public class WebRTCView extends ViewGroup {
         if (this.mirror != mirror) {
             this.mirror = mirror;
 
-            SurfaceViewRenderer surfaceViewRenderer = getSurfaceViewRenderer();
+            IRenderer renderer = getRenderer();
 
-            surfaceViewRenderer.setMirror(mirror);
+            renderer.setMirror(mirror);
             // SurfaceViewRenderer takes the value of its mirror property into
             // account upon its layout.
             requestSurfaceViewRendererLayout();
@@ -417,7 +455,7 @@ public class WebRTCView extends ViewGroup {
     }
 
     private void setScalingType(ScalingType scalingType) {
-        SurfaceViewRenderer surfaceViewRenderer;
+        IRenderer renderer;
 
         synchronized (layoutSyncRoot) {
             if (this.scalingType == scalingType) {
@@ -426,8 +464,8 @@ public class WebRTCView extends ViewGroup {
 
             this.scalingType = scalingType;
 
-            surfaceViewRenderer = getSurfaceViewRenderer();
-            surfaceViewRenderer.setScalingType(scalingType);
+            renderer = getRenderer();
+            renderer.setScalingType(scalingType);
         }
         // Both this instance ant its SurfaceViewRenderer take the value of
         // their scalingType properties into account upon their layouts.
@@ -487,17 +525,17 @@ public class WebRTCView extends ViewGroup {
      * @param zOrder The z-order to set on this {@code WebRTCView}.
      */
     public void setZOrder(int zOrder) {
-        SurfaceViewRenderer surfaceViewRenderer = getSurfaceViewRenderer();
+        IRenderer renderer = getRenderer();
 
         switch (zOrder) {
         case 0:
-            surfaceViewRenderer.setZOrderMediaOverlay(false);
+            renderer.setZOrderMediaOverlay(false);
             break;
         case 1:
-            surfaceViewRenderer.setZOrderMediaOverlay(true);
+            renderer.setZOrderMediaOverlay(true);
             break;
         case 2:
-            surfaceViewRenderer.setZOrderOnTop(true);
+            renderer.setZOrderOnTop(true);
             break;
         }
     }
@@ -510,7 +548,7 @@ public class WebRTCView extends ViewGroup {
         if (videoRenderer == null
                 && videoTrack != null
                 && ViewCompat.isAttachedToWindow(this)) {
-            SurfaceViewRenderer surfaceViewRenderer = getSurfaceViewRenderer();
+            IRenderer renderer = getRenderer();
 
             // XXX EglBase14 will report that isEGL14Supported() but its
             // getEglConfig() will fail with a RuntimeException with message
@@ -553,9 +591,9 @@ public class WebRTCView extends ViewGroup {
             // EglBase implementation to utilize.
             EglBase.Context sharedContext = eglBase.getEglBaseContext();
 
-            surfaceViewRenderer.init(sharedContext, rendererEvents);
+            renderer.init(sharedContext, rendererEvents);
 
-            videoRenderer = new VideoRenderer(surfaceViewRenderer);
+            videoRenderer = new VideoRenderer(renderer);
             videoTrack.addRenderer(videoRenderer);
         }
     }

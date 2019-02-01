@@ -45,6 +45,8 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  */
 @interface RTCVideoView : UIView <RTCVideoRenderer, RTCEAGLVideoViewDelegate>
 
+@property (nonatomic, copy) RCTDirectEventBlock onFirstFrame;
+
 /**
  * The indicator which determines whether this {@code RTCVideoView} is to mirror
  * the video specified by {@link #videoTrack} during its rendering. Typically,
@@ -79,6 +81,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
   /**
    * The width and height of the video (frames) rendered by {@link #subview}.
    */
+    BOOL firstFrameRendered;
   CGSize _videoSize;
 }
 
@@ -87,6 +90,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  */
 - (void)didMoveToWindow {
   [super didMoveToWindow];
+    firstFrameRendered = NO;
 
   // XXX This RTCVideoView strongly retains its videoTrack. The latter strongly
   // retains the former as well though because RTCVideoTrack strongly retains
@@ -298,6 +302,10 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  */
 - (void)renderFrame:(RTCVideoFrame *)frame {
   id<RTCVideoRenderer> videoRenderer = self.subview;
+    if (!firstFrameRendered) {
+        firstFrameRendered = YES;
+        self.onFirstFrame(@{});
+    }
   if (videoRenderer) {
     [videoRenderer renderFrame:frame];
   }
@@ -339,6 +347,8 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
 @implementation RTCVideoViewManager
 
 RCT_EXPORT_MODULE()
+
+RCT_EXPORT_VIEW_PROPERTY(onFirstFrame, RCTDirectEventBlock)
 
 - (UIView *)view {
   RTCVideoView *v = [[RTCVideoView alloc] init];

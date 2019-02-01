@@ -44,7 +44,7 @@ import org.webrtc.VideoRenderer;
  * Interaction with the layout framework in onMeasure and onSizeChanged.
  */
 public class SurfaceViewRenderer extends SurfaceView
-    implements SurfaceHolder.Callback, VideoRenderer.Callbacks {
+    implements SurfaceHolder.Callback, VideoRenderer.Callbacks, IRenderer {
   private static final String TAG = "SurfaceViewRenderer";
 
   // Dedicated render thread.
@@ -425,6 +425,11 @@ public class SurfaceViewRenderer extends SurfaceView
       return "";
     }
   }
+
+  /**
+   * Post a task to clear the SurfaceView to a transparent uniform color.
+   */
+  public void clearImage() {}
 
   private void makeBlack() {
     if (Thread.currentThread() != renderThread) {
