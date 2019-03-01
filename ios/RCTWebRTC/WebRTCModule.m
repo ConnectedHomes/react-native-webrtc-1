@@ -12,6 +12,7 @@
 #import <React/RCTUtils.h>
 
 #import "WebRTCModule.h"
+#import "WebRTCModule+RTCPeerConnection.h"
 
 @interface WebRTCModule ()
 
@@ -21,26 +22,12 @@
 
 @synthesize bridge = _bridge;
 
-- (instancetype)init
-{
-  self = [super init];
-  if (self) {
-    _peerConnectionFactory = [RTCPeerConnectionFactory new];
-//    [RTCPeerConnectionFactory initializeSSL];
-
-    _peerConnections = [NSMutableDictionary new];
-    _mediaStreams = [NSMutableDictionary new];
-    _tracks = [NSMutableDictionary new];
-  }
-  return self;
-}
-
 - (void)dealloc
 {
-  [_tracks removeAllObjects];
-  _tracks = nil;
-  [_mediaStreams removeAllObjects];
-  _mediaStreams = nil;
+  [_localTracks removeAllObjects];
+  _localTracks = nil;
+  [_localStreams removeAllObjects];
+  _localStreams = nil;
 
   for (NSNumber *peerConnectionId in _peerConnections) {
     RTCPeerConnection *peerConnection = _peerConnections[peerConnectionId];
@@ -52,9 +39,33 @@
   _peerConnectionFactory = nil;
 }
 
-+ (BOOL)requiresMainQueueSetup
+- (instancetype)init
 {
-    return YES;
+  self = [super init];
+  if (self) {
+    _peerConnectionFactory = [RTCPeerConnectionFactory new];
+//    [RTCPeerConnectionFactory initializeSSL];
+
+    _peerConnections = [NSMutableDictionary new];
+    _localStreams = [NSMutableDictionary new];
+    _localTracks = [NSMutableDictionary new];
+  }
+  return self;
+}
+
+- (RTCMediaStream*)streamForReactTag:(NSString*)reactTag
+{
+  RTCMediaStream *stream = _localStreams[reactTag];
+  if (!stream) {
+    for (NSNumber *peerConnectionId in _peerConnections) {
+      RTCPeerConnection *peerConnection = _peerConnections[peerConnectionId];
+      stream = peerConnection.remoteStreams[reactTag];
+      if (stream) {
+        break;
+      }
+    }
+  }
+  return stream;
 }
 
 RCT_EXPORT_MODULE();
