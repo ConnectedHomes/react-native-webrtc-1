@@ -45,8 +45,6 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  */
 @interface RTCVideoView : UIView <RTCVideoRenderer, RTCEAGLVideoViewDelegate>
 
-@property (nonatomic, copy) RCTDirectEventBlock onFirstFrame;
-
 /**
  * The indicator which determines whether this {@code RTCVideoView} is to mirror
  * the video specified by {@link #videoTrack} during its rendering. Typically,
@@ -74,6 +72,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  * The {@link RTCVideoTrack}, if any, which this instance renders.
  */
 @property (nonatomic, strong) RTCVideoTrack *videoTrack;
+@property (nonatomic, copy) RCTDirectEventBlock onFirstFrame;
 
 @end
 
@@ -81,8 +80,8 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
   /**
    * The width and height of the video (frames) rendered by {@link #subview}.
    */
-    BOOL firstFrameRendered;
   CGSize _videoSize;
+  BOOL firstFrameRendered;
 }
 
 /**
@@ -90,8 +89,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  */
 - (void)didMoveToWindow {
   [super didMoveToWindow];
-    firstFrameRendered = NO;
-
+  firstFrameRendered = NO;
   // XXX This RTCVideoView strongly retains its videoTrack. The latter strongly
   // retains the former as well though because RTCVideoTrack strongly retains
   // the RTCVideoRenderers added to it. In other words, there is a cycle of
@@ -302,10 +300,10 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  */
 - (void)renderFrame:(RTCVideoFrame *)frame {
   id<RTCVideoRenderer> videoRenderer = self.subview;
-    if (!firstFrameRendered) {
+  if (!firstFrameRendered) {
         firstFrameRendered = YES;
         self.onFirstFrame(@{});
-    }
+  }
   if (videoRenderer) {
     [videoRenderer renderFrame:frame];
   }
@@ -378,17 +376,20 @@ RCT_CUSTOM_VIEW_PROPERTY(objectFit, NSString *, RTCVideoView) {
   view.objectFit = e;
 }
 
-RCT_CUSTOM_VIEW_PROPERTY(streamURL, NSNumber, RTCVideoView) {
+RCT_CUSTOM_VIEW_PROPERTY(streamURL, NSString, RTCVideoView) {
   RTCVideoTrack *videoTrack;
 
   if (json) {
-    NSString *streamId = (NSString *)json;
+    NSString *streamReactTag = (NSString *)json;
 
     WebRTCModule *module = [self.bridge moduleForName:@"WebRTCModule"];
-    RTCMediaStream *stream = module.mediaStreams[streamId];
-    NSArray *videoTracks = stream.videoTracks;
+    RTCMediaStream *stream = [module streamForReactTag:streamReactTag];
+    NSArray *videoTracks = stream ? stream.videoTracks : nil;
 
-    videoTrack = videoTracks.count ? videoTracks[0] : nil;
+    videoTrack = videoTracks && videoTracks.count ? videoTracks[0] : nil;
+    if (!videoTrack) {
+      NSLog(@"No video stream for react tag: %@", streamReactTag);
+    }
   } else {
     videoTrack = nil;
   }
