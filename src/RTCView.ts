@@ -59,6 +59,7 @@ interface RTCVideoViewProps extends ViewProps {
    * zOrder: number
    */
   zOrder?: number;
+  onFirstFrame?: () => {},
 }
 
 export default requireNativeComponent<RTCVideoViewProps>('RTCVideoView');

@@ -42,7 +42,6 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  * Implements an equivalent of {@code HTMLVideoElement} i.e. Web's video
  * element.
  */
-
 #if !TARGET_OS_OSX
 @interface RTCVideoView : UIView<RTCVideoViewDelegate>
 #else
@@ -63,6 +62,8 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  * the CSS style {@code object-fit}.
  */
 @property(nonatomic) RTCVideoViewObjectFit objectFit;
+
+@property (nonatomic, copy) RCTDirectEventBlock onFirstFrame;
 
 /**
  * The {@link RRTCVideoRenderer} which implements the actual rendering and which
@@ -92,6 +93,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
      * The width and height of the video (frames) rendered by {@link #subview}.
      */
     CGSize _videoSize;
+    BOOL firstFrameRendered;
 }
 
 @synthesize videoView = _videoView;
@@ -100,6 +102,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  * Tells this view that its window object changed.
  */
 - (void)didMoveToWindow {
+    firstFrameRendered = NO;
     // XXX This RTCVideoView strongly retains its videoTrack. The latter strongly
     // retains the former as well though because RTCVideoTrack strongly retains
     // the RTCVideoRenderers added to it. In other words, there is a cycle of
@@ -267,6 +270,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  */
 - (void)setVideoTrack:(RTCVideoTrack *)videoTrack {
     RTCVideoTrack *oldValue = self.videoTrack;
+    firstFrameRendered = NO;
 
     if (oldValue != videoTrack) {
         if (oldValue) {
@@ -314,6 +318,13 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
                                                                  rotation:RTCVideoRotation_0
                                                               timeStampNs:time] newI420VideoFrame];
 
+            if (!firstFrameRendered) {
+                firstFrameRendered = YES;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.onFirstFrame(@{});
+                });
+            }
+            
             [self.videoView renderFrame:frame];
 
             CVPixelBufferRelease(pixelBuffer);
@@ -331,6 +342,40 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
             });
         }
     }
+
+<<<<<<< Updated upstream
+}
+#pragma mark - RTCVideoRenderer methods
+
+/**
+ * Renders a specific video frame. Delegates to the subview of this instance
+ * which implements the actual {@link RTCVideoRenderer}.
+ *
+ * @param frame The video frame to render.
+ */
+- (void)renderFrame:(RTCVideoFrame *)frame {
+    id<RTCVideoRenderer> videoRenderer = self.videoView;
+    if (!firstFrameRendered) {
+      firstFrameRendered = YES;
+      self.onFirstFrame(@{});
+    }
+    if (videoRenderer) {
+      [videoRenderer renderFrame:frame];
+    }
+}
+
+/**
+ * Sets the size of the video frame to render.
+ *
+ * @param size The size of the video frame to render.
+ */
+- (void)setSize:(CGSize)size {
+    id<RTCVideoRenderer> videoRenderer = self.videoView;
+    if (videoRenderer) {
+        [videoRenderer setSize:size];
+    }
+=======
+>>>>>>> Stashed changes
 }
 
 #pragma mark - RTCVideoViewDelegate methods
@@ -362,6 +407,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
 @implementation RTCVideoViewManager
 
 RCT_EXPORT_MODULE()
+RCT_EXPORT_VIEW_PROPERTY(onFirstFrame, RCTDirectEventBlock)
 
 #if !TARGET_OS_OSX
 - (UIView *)view {

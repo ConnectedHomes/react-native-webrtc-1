@@ -5,6 +5,8 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Point;
 import android.util.Log;
+import android.graphics.Color;
+import android.support.v4.view.ViewCompat;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -25,6 +27,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Objects;
+import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.Callback;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.uimanager.events.RCTEventEmitter;
 
 public class WebRTCView extends ViewGroup {
     /**
@@ -155,6 +162,20 @@ public class WebRTCView extends ViewGroup {
     }
 
     /**
+     * Gets the {@code SurfaceViewRenderer} which renders {@link #videoTrack}.
+     * Explicitly defined and used in order to facilitate switching the instance
+     * at compile time. For example, reduces the number of modifications
+     * necessary to switch the implementation from a {@code SurfaceViewRenderer}
+     * that is a child of a {@code WebRTCView} to {@code WebRTCView} extending
+     * {@code SurfaceViewRenderer}.
+     *
+     * @return The {@code SurfaceViewRenderer} which renders {@code videoTrack}.
+     */
+    private final SurfaceViewRenderer getSurfaceViewRenderer() {
+        return surfaceViewRenderer;
+    }
+
+    /**
      * "Cleans" the {@code SurfaceViewRenderer} by setting the view part to
      * opaque black and the surface part to transparent.
      */
@@ -222,9 +243,20 @@ public class WebRTCView extends ViewGroup {
      * rendered) shines through.
      */
     private void onFirstFrameRendered() {
-        post(() -> {
-            Log.d(TAG, "First frame rendered.");
-            surfaceViewRenderer.setBackgroundColor(Color.TRANSPARENT);
+        post(new Runnable() {
+            @Override
+            public void run() {
+                Log.d(TAG, "First frame rendered.");
+
+                WritableMap event = Arguments.createMap();
+                ReactContext reactContext = (ReactContext) getContext();
+                reactContext.getJSModule(RCTEventEmitter.class).receiveEvent(
+                        getId(),
+                        "onFirstFrame",
+                        event
+                );
+                getSurfaceViewRenderer().setBackgroundColor(Color.TRANSPARENT);
+            }
         });
     }
 
