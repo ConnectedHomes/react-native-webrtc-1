@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.util.Log;
 
 import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.uimanager.events.RCTEventEmitter;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -286,6 +287,13 @@ public class WebRTCView extends ViewGroup {
     private void onFirstFrameRendered() {
         post(() -> {
             Log.d(TAG, "First frame rendered.");
+
+            ReactContext reactContext = (ReactContext) getContext();
+            reactContext.getJSModule(RCTEventEmitter.class).receiveEvent(
+                    getId(),
+                    "onFirstFrame",
+                    null
+            );
             surfaceViewRenderer.setBackgroundColor(Color.TRANSPARENT);
         });
     }
