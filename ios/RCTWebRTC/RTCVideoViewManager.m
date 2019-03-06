@@ -10,6 +10,7 @@
 
 #import <WebRTC/RTCEAGLVideoView.h>
 #import <WebRTC/RTCMediaStream.h>
+#import <WebRTC/RTCVideoFrame.h>
 #import <WebRTC/RTCVideoTrack.h>
 
 #import "RTCVideoViewManager.h"
@@ -42,7 +43,9 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  * Implements an equivalent of {@code HTMLVideoElement} i.e. Web's video
  * element.
  */
-@interface RTCVideoView : UIView <RTCEAGLVideoViewDelegate>
+@interface RTCVideoView : UIView <RTCVideoRenderer, RTCEAGLVideoViewDelegate>
+
+@property (nonatomic, copy) RCTDirectEventBlock onFirstFrame;
 
 /**
  * The indicator which determines whether this {@code RTCVideoView} is to mirror
@@ -65,7 +68,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  * itself so that the rendered video preserves the aspect ratio of
  * {@link #_videoSize}.
  */
-@property (nonatomic, readonly) __kindof UIView<RTCVideoRenderer> *videoView;
+@property (nonatomic, readonly) RTCEAGLVideoView *subview;
 
 /**
  * The {@link RTCVideoTrack}, if any, which this instance renders.
@@ -78,15 +81,19 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
   /**
    * The width and height of the video (frames) rendered by {@link #subview}.
    */
+    BOOL firstFrameRendered;
   CGSize _videoSize;
 }
 
-@synthesize videoView = _videoView;
+@synthesize subview;
 
 /**
  * Tells this view that its window object changed.
  */
 - (void)didMoveToWindow {
+  [super didMoveToWindow];
+    firstFrameRendered = NO;
+
   // XXX This RTCVideoView strongly retains its videoTrack. The latter strongly
   // retains the former as well though because RTCVideoTrack strongly retains
   // the RTCVideoRenderers added to it. In other words, there is a cycle of
@@ -101,11 +108,24 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
       // makes sure that the specified RTCVideoRenderer is not added multiple
       // times (without intervening removals, of course). It may (or may not) be
       // wise to explicitly make sure here that we will not hit that NSAssert1.
-      [videoTrack addRenderer:self.videoView];
+      [videoTrack addRenderer:self];
     } else {
-      [videoTrack removeRenderer:self.videoView];
+      [videoTrack removeRenderer:self];
     }
   }
+}
+
+/**
+ * Invalidates the current layout of the receiver and triggers a layout update
+ * during the next update cycle. Make sure that the method call is performed on
+ * the application's main thread (as documented to be necessary by Apple).
+ */
+- (void)dispatchAsyncSetNeedsLayout {
+  __weak UIView *weakSelf = self;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    UIView *strongSelf = weakSelf;
+    [strongSelf setNeedsLayout];
+  });
 }
 
 /**
@@ -116,15 +136,14 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  */
 - (instancetype)initWithFrame:(CGRect)frame {
   if (self = [super initWithFrame:frame]) {
-    RTCEAGLVideoView *subview = [[RTCEAGLVideoView alloc] init];
+    subview = [[RTCEAGLVideoView alloc] init];
     subview.delegate = self;
-    _videoView = subview;
 
     _videoSize.height = 0;
     _videoSize.width = 0;
 
     self.opaque = NO;
-    [self addSubview:self.videoView];
+    [self addSubview:subview];
   }
   return self;
 }
@@ -134,7 +153,9 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  * the video it renders.
  */
 - (void)layoutSubviews {
-  UIView *subview = self.videoView;
+  [super layoutSubviews];
+
+  UIView *subview = self.subview;
   if (!subview) {
     return;
   }
@@ -203,7 +224,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
 - (void)setMirror:(BOOL)mirror {
   if (_mirror != mirror) {
       _mirror = mirror;
-      [self setNeedsLayout];
+      [self dispatchAsyncSetNeedsLayout];
   }
 }
 
@@ -217,7 +238,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
 - (void)setObjectFit:(RTCVideoViewObjectFit)objectFit {
   if (_objectFit != objectFit) {
       _objectFit = objectFit;
-      [self setNeedsLayout];
+      [self dispatchAsyncSetNeedsLayout];
   }
 }
 
@@ -233,7 +254,7 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
 
   if (oldValue != videoTrack) {
     if (oldValue) {
-      [oldValue removeRenderer:self.videoView];
+      [oldValue removeRenderer:self];
     }
 
     _videoTrack = videoTrack;
@@ -245,8 +266,39 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
     // order to break the cycle, have this RTCVideoView as the RTCVideoRenderer
     // of its videoTrack only while this view resides in a window.
     if (videoTrack && self.window) {
-      [videoTrack addRenderer:self.videoView];
+      [videoTrack addRenderer:self];
     }
+  }
+}
+
+#pragma mark - RTCVideoRenderer methods
+
+/**
+ * Renders a specific video frame. Delegates to the subview of this instance
+ * which implements the actual {@link RTCVideoRenderer}.
+ *
+ * @param frame The video frame to render.
+ */
+- (void)renderFrame:(RTCVideoFrame *)frame {
+  id<RTCVideoRenderer> videoRenderer = self.subview;
+    if (!firstFrameRendered) {
+        firstFrameRendered = YES;
+        self.onFirstFrame(@{});
+    }
+  if (videoRenderer) {
+    [videoRenderer renderFrame:frame];
+  }
+}
+
+/**
+ * Sets the size of the video frame to render.
+ *
+ * @param size The size of the video frame to render.
+ */
+- (void)setSize:(CGSize)size {
+  id<RTCVideoRenderer> videoRenderer = self.subview;
+  if (videoRenderer) {
+    [videoRenderer setSize:size];
   }
 }
 
@@ -257,15 +309,15 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
  * {@link RTCEAGLVideoView} had the size of the video (frames) it renders
  * changed.
  *
- * @param videoView The {@code RTCVideoRenderer} which had the size of the video
+ * @param videoView The {@code RTCEAGLVideoView} which had the size of the video
  * (frames) it renders changed to the specified size.
  * @param size The new size of the video (frames) to be rendered by the
  * specified {@code videoView}.
  */
-- (void)videoView:(id<RTCVideoRenderer>)videoView didChangeVideoSize:(CGSize)size {
-  if (videoView == self.videoView) {
+- (void)videoView:(RTCEAGLVideoView *)videoView didChangeVideoSize:(CGSize)size {
+  if (videoView == self.subview) {
     _videoSize = size;
-    [self setNeedsLayout];
+    [self dispatchAsyncSetNeedsLayout];
   }
 }
 
@@ -274,6 +326,8 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
 @implementation RTCVideoViewManager
 
 RCT_EXPORT_MODULE()
+
+RCT_EXPORT_VIEW_PROPERTY(onFirstFrame, RCTDirectEventBlock)
 
 - (UIView *)view {
   RTCVideoView *v = [[RTCVideoView alloc] init];
@@ -303,8 +357,8 @@ RCT_CUSTOM_VIEW_PROPERTY(objectFit, NSString *, RTCVideoView) {
   view.objectFit = e;
 }
 
-RCT_CUSTOM_VIEW_PROPERTY(streamURL, NSString *, RTCVideoView) {
-  RTCVideoTrack *videoTrack = nil;
+RCT_CUSTOM_VIEW_PROPERTY(streamURL, NSString, RTCVideoView) {
+  RTCVideoTrack *videoTrack;
 
   if (json) {
     NSString *streamReactTag = (NSString *)json;
@@ -317,6 +371,8 @@ RCT_CUSTOM_VIEW_PROPERTY(streamURL, NSString *, RTCVideoView) {
     if (!videoTrack) {
       NSLog(@"No video stream for react tag: %@", streamReactTag);
     }
+  } else {
+    videoTrack = nil;
   }
 
   view.videoTrack = videoTrack;
