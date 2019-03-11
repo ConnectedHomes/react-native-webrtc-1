@@ -329,7 +329,6 @@ public class TextureViewRenderer
         }
         int rotatedWidth = rotation == 0 || rotation == 180 ? videoWidth : videoHeight;
         int rotatedHeight = rotation == 0 || rotation == 180 ? videoHeight : videoWidth;
-        // run immediately if possible for ui thread tests
         post(() -> {
             rotatedFrameWidth = rotatedWidth;
             rotatedFrameHeight = rotatedHeight;
