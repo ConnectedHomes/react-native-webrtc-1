@@ -23,7 +23,6 @@ import org.webrtc.Logging;
 import org.webrtc.RendererCommon;
 import org.webrtc.ThreadUtils;
 import org.webrtc.VideoFrame;
-import org.webrtc.VideoRenderer;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -274,7 +273,7 @@ public class TextureViewRenderer
     }
 
     // Update frame dimensions and report any changes to |rendererEvents|.
-    private void updateFrameDimensionsAndReportEvents(VideoRenderer.I420Frame frame) {
+    private void updateFrameDimensionsAndReportEvents(VideoFrame frame) {
         synchronized (layoutLock) {
             if (isRenderingPaused) {
                 return;
@@ -286,16 +285,16 @@ public class TextureViewRenderer
                     rendererEvents.onFirstFrameRendered();
                 }
             }
-            if (rotatedFrameWidth != frame.rotatedWidth() || rotatedFrameHeight != frame.rotatedHeight()
-                    || frameRotation != frame.rotationDegree) {
-                logD("Reporting frame resolution changed to " + frame.width + "x" + frame.height
-                        + " with rotation " + frame.rotationDegree);
+            if (rotatedFrameWidth != frame.getRotatedWidth() || rotatedFrameHeight != frame.getRotatedHeight()
+                    || frameRotation != frame.getRotation()) {
+                logD("Reporting frame resolution changed to " + frame.getBuffer().getWidth()+ "x" + frame.getBuffer().getHeight()
+                        + " with rotation " + frame.getRotation());
                 if (rendererEvents != null) {
-                    rendererEvents.onFrameResolutionChanged(frame.width, frame.height, frame.rotationDegree);
+                    rendererEvents.onFrameResolutionChanged(frame.getBuffer().getWidth(), frame.getBuffer().getHeight(), frame.getRotation());
                 }
-                rotatedFrameWidth = frame.rotatedWidth();
-                rotatedFrameHeight = frame.rotatedHeight();
-                frameRotation = frame.rotationDegree;
+                rotatedFrameWidth = frame.getRotatedWidth();
+                rotatedFrameHeight = frame.getRotatedHeight();
+                frameRotation = frame.getRotation();
                 post(new Runnable() {
                     @Override
                     public void run() {
@@ -312,6 +311,7 @@ public class TextureViewRenderer
 
     @Override
     public void onFrame(VideoFrame videoFrame) {
+        updateFrameDimensionsAndReportEvents(videoFrame);
         eglRenderer.onFrame(videoFrame);
     }
 
