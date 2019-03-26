@@ -13,65 +13,64 @@ package com.oney.WebRTCModule;
 import android.content.Context;
 import android.content.res.Resources.NotFoundException;
 import android.graphics.Point;
-import android.graphics.SurfaceTexture;
+import android.os.Looper;
 import android.util.AttributeSet;
-import android.view.TextureView;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+
 import org.webrtc.EglBase;
 import org.webrtc.EglRenderer;
 import org.webrtc.GlRectDrawer;
-import org.webrtc.Logging;
 import org.webrtc.RendererCommon;
-import org.webrtc.ThreadUtils;
+import org.webrtc.SurfaceEglRenderer;
 import org.webrtc.VideoFrame;
-import java.util.concurrent.CountDownLatch;
+import org.webrtc.VideoSink;
+import org.webrtc.ThreadUtils;
+import org.webrtc.Logging;
 
 /**
- * Implements org.webrtc.VideoRenderer.Callbacks by displaying the video stream on a SurfaceView.
- * renderFrame() is asynchronous to avoid blocking the calling thread.
- * This class is thread safe and handles access from potentially four different threads:
- * Interaction from the main app in init, release, setMirror, and setScalingtype.
- * Interaction from C++ rtc::VideoSinkInterface in renderFrame.
- * Interaction from the Activity lifecycle in surfaceCreated, surfaceChanged, and surfaceDestroyed.
- * Interaction with the layout framework in onMeasure and onSizeChanged.
+ * Display the video stream on a SurfaceView.
  */
-public class TextureViewRenderer
-        extends TextureView implements TextureView.SurfaceTextureListener, IRenderer {
+public class SurfaceViewRenderer extends SurfaceView
+        implements SurfaceHolder.Callback, VideoSink, RendererCommon.RendererEvents, IRenderer {
     private static final String TAG = "SurfaceViewRenderer";
 
     // Cached resource name.
     private final String resourceName;
     private final RendererCommon.VideoLayoutMeasure videoLayoutMeasure =
             new RendererCommon.VideoLayoutMeasure();
-    private final EglRenderer eglRenderer;
+    private final SurfaceEglRenderer eglRenderer;
 
     // Callback for reporting renderer events. Read-only after initilization so no lock required.
     private RendererCommon.RendererEvents rendererEvents;
 
-    private final Object layoutLock = new Object();
-    private boolean isRenderingPaused = false;
-    private boolean isFirstFrameRendered;
+    // Accessed only on the main thread.
     private int rotatedFrameWidth;
     private int rotatedFrameHeight;
-    private int frameRotation;
+    private boolean enableFixedSize;
+    private int surfaceWidth;
+    private int surfaceHeight;
 
     /**
      * Standard View constructor. In order to render something, you must first call init().
      */
-    public TextureViewRenderer(Context context) {
+    public SurfaceViewRenderer(Context context) {
         super(context);
         this.resourceName = getResourceName();
-        eglRenderer = new EglRenderer(resourceName);
-        setSurfaceTextureListener(this);
+        eglRenderer = new SurfaceEglRenderer(resourceName);
+        getHolder().addCallback(this);
+        getHolder().addCallback(eglRenderer);
     }
 
     /**
      * Standard View constructor. In order to render something, you must first call init().
      */
-    public TextureViewRenderer(Context context, AttributeSet attrs) {
+    public SurfaceViewRenderer(Context context, AttributeSet attrs) {
         super(context, attrs);
         this.resourceName = getResourceName();
-        eglRenderer = new EglRenderer(resourceName);
-        setSurfaceTextureListener(this);
+        eglRenderer = new SurfaceEglRenderer(resourceName);
+        getHolder().addCallback(this);
+        getHolder().addCallback(eglRenderer);
     }
 
     /**
@@ -93,13 +92,9 @@ public class TextureViewRenderer
                      RendererCommon.GlDrawer drawer) {
         ThreadUtils.checkIsOnMainThread();
         this.rendererEvents = rendererEvents;
-        synchronized (layoutLock) {
-            isFirstFrameRendered = false;
-            rotatedFrameWidth = 0;
-            rotatedFrameHeight = 0;
-            frameRotation = 0;
-        }
-        eglRenderer.init(sharedContext, configAttributes, drawer);
+        rotatedFrameWidth = 0;
+        rotatedFrameHeight = 0;
+        eglRenderer.init(sharedContext, this /* rendererEvents */, configAttributes, drawer);
     }
 
     /**
@@ -144,22 +139,21 @@ public class TextureViewRenderer
     }
 
     /**
+     * Enables fixed size for the surface. This provides better performance but might be buggy on some
+     * devices. By default this is turned off.
+     */
+    public void setEnableHardwareScaler(boolean enabled) {
+        ThreadUtils.checkIsOnMainThread();
+        enableFixedSize = enabled;
+        updateSurfaceSize();
+    }
+
+    /**
      * Set if the video stream should be mirrored or not.
      */
     public void setMirror(final boolean mirror) {
         eglRenderer.setMirror(mirror);
     }
-
-    @Override
-    public void setZOrderMediaOverlay(boolean isMediaOverlay) {
-
-    }
-
-    @Override
-    public void setZOrderOnTop(boolean onTop) {
-
-    }
-
 
     /**
      * Set how the video will fill the allowed layout area.
@@ -184,35 +178,29 @@ public class TextureViewRenderer
      *            reduction.
      */
     public void setFpsReduction(float fps) {
-        synchronized (layoutLock) {
-            isRenderingPaused = fps == 0f;
-        }
         eglRenderer.setFpsReduction(fps);
     }
 
     public void disableFpsReduction() {
-        synchronized (layoutLock) {
-            isRenderingPaused = false;
-        }
         eglRenderer.disableFpsReduction();
     }
 
     public void pauseVideo() {
-        synchronized (layoutLock) {
-            isRenderingPaused = true;
-        }
         eglRenderer.pauseVideo();
+    }
+
+    // VideoSink interface.
+    @Override
+    public void onFrame(VideoFrame frame) {
+        eglRenderer.onFrame(frame);
     }
 
     // View layout interface.
     @Override
     protected void onMeasure(int widthSpec, int heightSpec) {
         ThreadUtils.checkIsOnMainThread();
-        final Point size;
-        synchronized (layoutLock) {
-            size =
-                    videoLayoutMeasure.measure(widthSpec, heightSpec, rotatedFrameWidth, rotatedFrameHeight);
-        }
+        Point size =
+                videoLayoutMeasure.measure(widthSpec, heightSpec, rotatedFrameWidth, rotatedFrameHeight);
         setMeasuredDimension(size.x, size.y);
         logD("onMeasure(). New size: " + size.x + "x" + size.y);
     }
@@ -221,45 +209,58 @@ public class TextureViewRenderer
     protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
         ThreadUtils.checkIsOnMainThread();
         eglRenderer.setLayoutAspectRatio((right - left) / (float) (bottom - top));
+        updateSurfaceSize();
     }
 
-    @Override
-    public void onSurfaceTextureAvailable(final SurfaceTexture surface, final int width,
-                                          final int height) {
-        logD("onSurfaceTextureAvailable: " + surface + " size: " + width + "x" + height);
+    private void updateSurfaceSize() {
         ThreadUtils.checkIsOnMainThread();
-        eglRenderer.createEglSurface(surface);
-    }
-
-    @Override
-    public void onSurfaceTextureSizeChanged(final SurfaceTexture surface, final int width,
-                                            final int height) {
-        logD("onSurfaceTextureSizeChanged: " + surface + " size: " + width + "x" + height);
-        ThreadUtils.checkIsOnMainThread();
-    }
-
-    @Override
-    public boolean onSurfaceTextureDestroyed(final SurfaceTexture surface) {
-        logD("onSurfaceTextureDestroyed: " + surface);
-        ThreadUtils.checkIsOnMainThread();
-        final CountDownLatch completionLatch = new CountDownLatch(1);
-        eglRenderer.releaseEglSurface(new Runnable() {
-            @Override
-            public void run() {
-                completionLatch.countDown();
+        if (enableFixedSize && rotatedFrameWidth != 0 && rotatedFrameHeight != 0 && getWidth() != 0
+                && getHeight() != 0) {
+            final float layoutAspectRatio = getWidth() / (float) getHeight();
+            final float frameAspectRatio = rotatedFrameWidth / (float) rotatedFrameHeight;
+            final int drawnFrameWidth;
+            final int drawnFrameHeight;
+            if (frameAspectRatio > layoutAspectRatio) {
+                drawnFrameWidth = (int) (rotatedFrameHeight * layoutAspectRatio);
+                drawnFrameHeight = rotatedFrameHeight;
+            } else {
+                drawnFrameWidth = rotatedFrameWidth;
+                drawnFrameHeight = (int) (rotatedFrameWidth / layoutAspectRatio);
             }
-        });
-        ThreadUtils.awaitUninterruptibly(completionLatch);
-        return true;
+            // Aspect ratio of the drawn frame and the view is the same.
+            final int width = Math.min(getWidth(), drawnFrameWidth);
+            final int height = Math.min(getHeight(), drawnFrameHeight);
+            logD("updateSurfaceSize. Layout size: " + getWidth() + "x" + getHeight() + ", frame size: "
+                    + rotatedFrameWidth + "x" + rotatedFrameHeight + ", requested surface size: " + width
+                    + "x" + height + ", old surface size: " + surfaceWidth + "x" + surfaceHeight);
+            if (width != surfaceWidth || height != surfaceHeight) {
+                surfaceWidth = width;
+                surfaceHeight = height;
+                getHolder().setFixedSize(width, height);
+            }
+        } else {
+            surfaceWidth = surfaceHeight = 0;
+            getHolder().setSizeFromLayout();
+        }
+    }
+
+    // SurfaceHolder.Callback interface.
+    @Override
+    public void surfaceCreated(final SurfaceHolder holder) {
+        ThreadUtils.checkIsOnMainThread();
+        surfaceWidth = surfaceHeight = 0;
+        updateSurfaceSize();
     }
 
     @Override
-    public void onSurfaceTextureUpdated(final SurfaceTexture surface) {
-    }
+    public void surfaceDestroyed(SurfaceHolder holder) {}
+
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {}
 
     private String getResourceName() {
         try {
-            return getResources().getResourceEntryName(getId()) + ": ";
+            return getResources().getResourceEntryName(getId());
         } catch (NotFoundException e) {
             return "";
         }
@@ -270,49 +271,6 @@ public class TextureViewRenderer
      */
     public void clearImage() {
         eglRenderer.clearImage();
-    }
-
-    // Update frame dimensions and report any changes to |rendererEvents|.
-    private void updateFrameDimensionsAndReportEvents(VideoFrame frame) {
-        synchronized (layoutLock) {
-            if (isRenderingPaused) {
-                return;
-            }
-            if (!isFirstFrameRendered) {
-                isFirstFrameRendered = true;
-                logD("Reporting first rendered frame.");
-                if (rendererEvents != null) {
-                    rendererEvents.onFirstFrameRendered();
-                }
-            }
-            if (rotatedFrameWidth != frame.getRotatedWidth() || rotatedFrameHeight != frame.getRotatedHeight()
-                    || frameRotation != frame.getRotation()) {
-                logD("Reporting frame resolution changed to " + frame.getBuffer().getWidth()+ "x" + frame.getBuffer().getHeight()
-                        + " with rotation " + frame.getRotation());
-                if (rendererEvents != null) {
-                    rendererEvents.onFrameResolutionChanged(frame.getBuffer().getWidth(), frame.getBuffer().getHeight(), frame.getRotation());
-                }
-                rotatedFrameWidth = frame.getRotatedWidth();
-                rotatedFrameHeight = frame.getRotatedHeight();
-                frameRotation = frame.getRotation();
-                post(new Runnable() {
-                    @Override
-                    public void run() {
-                        requestLayout();
-                    }
-                });
-            }
-        }
-    }
-
-    private void logD(String string) {
-        Logging.d(TAG, resourceName + string);
-    }
-
-    @Override
-    public void onFrame(VideoFrame videoFrame) {
-        updateFrameDimensionsAndReportEvents(videoFrame);
-        eglRenderer.onFrame(videoFrame);
     }
 
     @Override
@@ -329,11 +287,24 @@ public class TextureViewRenderer
         }
         int rotatedWidth = rotation == 0 || rotation == 180 ? videoWidth : videoHeight;
         int rotatedHeight = rotation == 0 || rotation == 180 ? videoHeight : videoWidth;
-        post(() -> {
+        // run immediately if possible for ui thread tests
+        postOrRun(() -> {
             rotatedFrameWidth = rotatedWidth;
             rotatedFrameHeight = rotatedHeight;
+            updateSurfaceSize();
             requestLayout();
         });
+    }
 
+    private void postOrRun(Runnable r) {
+        if (Thread.currentThread() == Looper.getMainLooper().getThread()) {
+            r.run();
+        } else {
+            post(r);
+        }
+    }
+
+    private void logD(String string) {
+        Logging.d(TAG, resourceName + ": " + string);
     }
 }

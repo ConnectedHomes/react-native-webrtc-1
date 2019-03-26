@@ -4,8 +4,9 @@ import android.support.annotation.ColorInt;
 
 import org.webrtc.EglBase;
 import org.webrtc.RendererCommon;
+import org.webrtc.VideoSink;
 
-public interface IRenderer extends org.webrtc.VideoRenderer.Callbacks {
+public interface IRenderer extends VideoSink, RendererCommon.RendererEvents {
     public abstract void clearImage();
     public abstract void release();
     public abstract void setScalingType(RendererCommon.ScalingType scalingType);

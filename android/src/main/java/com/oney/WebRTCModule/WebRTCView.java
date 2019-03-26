@@ -1,9 +1,11 @@
 package com.oney.WebRTCModule;
 
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.graphics.Point;
 import android.graphics.Color;
+import android.os.Build;
 import android.support.v4.view.ViewCompat;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,11 +22,9 @@ import org.webrtc.MediaStream;
 import org.webrtc.RendererCommon;
 import org.webrtc.RendererCommon.RendererEvents;
 import org.webrtc.RendererCommon.ScalingType;
-import org.webrtc.SurfaceViewRenderer;
 import org.webrtc.VideoTrack;
 
 import com.facebook.react.bridge.Arguments;
-import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
 
@@ -80,19 +80,19 @@ public class WebRTCView extends ViewGroup {
 
     /**
      * The height of the last video frame rendered by
-     * {@link #surfaceViewRenderer}.
+     * {@link #renderer}.
      */
     private int frameHeight;
 
     /**
      * The rotation (degree) of the last video frame rendered by
-     * {@link #surfaceViewRenderer}.
+     * {@link #renderer}.
      */
     private int frameRotation;
 
     /**
      * The width of the last video frame rendered by
-     * {@link #surfaceViewRenderer}.
+     * {@link #renderer}.
      */
     private int frameWidth;
 
@@ -198,8 +198,8 @@ public class WebRTCView extends ViewGroup {
      * opaque black and the surface part to transparent.
      */
     private void cleanSurfaceViewRenderer() {
-        surfaceViewRenderer.setBackgroundColor(Color.BLACK);
-        surfaceViewRenderer.clearImage();
+        renderer.setBackgroundColor(Color.BLACK);
+        renderer.clearImage();
     }
 
     /**
@@ -430,7 +430,7 @@ public class WebRTCView extends ViewGroup {
                 break;
             }
         }
-        surfaceViewRenderer.layout(l, t, r, b);
+        renderer.layout(l, t, r, b);
     }
 
     /**
@@ -655,8 +655,8 @@ public class WebRTCView extends ViewGroup {
                 return;
             }
 
-            surfaceViewRenderer.init(sharedContext, rendererEvents);
-            videoTrack.addSink(surfaceViewRenderer);
+            renderer.init(sharedContext, rendererEvents);
+            videoTrack.addSink(renderer);
 
             rendererAttached = true;
         }
