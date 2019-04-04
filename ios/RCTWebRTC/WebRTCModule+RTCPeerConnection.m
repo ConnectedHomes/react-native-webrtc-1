@@ -261,6 +261,7 @@ RCT_EXPORT_METHOD(peerConnectionGetStats:(nonnull NSString *)trackID
 {
   RTCPeerConnection *peerConnection = self.peerConnections[objectID];
   if (!peerConnection) {
+    callback(@[@(NO), @"PeerConnection ID not found"]);
     return;
   }
 
@@ -272,8 +273,10 @@ RCT_EXPORT_METHOD(peerConnectionGetStats:(nonnull NSString *)trackID
     [peerConnection statsForTrack:track
                  statsOutputLevel:RTCStatsOutputLevelStandard
                 completionHandler:^(NSArray<RTCLegacyStatsReport *> *stats) {
-                  callback(@[[self statsToJSON:stats]]);
+                  callback(@[@(YES), [self statsToJSON:stats]]);
                 }];
+  } else {
+    callback(@[@(NO), @"Track not found"]);
   }
 }
 

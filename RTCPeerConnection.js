@@ -112,7 +112,6 @@ export default class RTCPeerConnection extends EventTarget(PEER_CONNECTION_EVENT
     this.setLocalDescription = RTCUtil.promisify(this.setLocalDescription.bind(this));
     this.setRemoteDescription = RTCUtil.promisify(this.setRemoteDescription.bind(this));
     this.addIceCandidate = RTCUtil.promisify(this.addIceCandidate.bind(this));
-    this.getStats = RTCUtil.promisify(this.getStats.bind(this));
   }
 
   addStream(stream: MediaStream) {
@@ -198,31 +197,34 @@ export default class RTCPeerConnection extends EventTarget(PEER_CONNECTION_EVENT
     });
   }
 
-  getStats(track, success, failure) {
-    if (WebRTCModule.peerConnectionGetStats) {
+  getStats(track) {
+    // NOTE: This returns a Promise but the format of the results is still
+    // the "legacy" one. The native side (in Oobj-C) doesn't yet support the
+    // new format: https://bugs.chromium.org/p/webrtc/issues/detail?id=6872
+    return new Promise((resolve, reject) => {
       WebRTCModule.peerConnectionGetStats(
         (track && track.id) || '',
         this._peerConnectionId,
-        stats => {
+        (success, data) => {
           if (success) {
-            // It turns out that on Android it is faster to construct a single
+            // On both Android and iOS it is faster to construct a single
             // JSON string representing the array of StatsReports and have it
             // pass through the React Native bridge rather than the array of
-            // StatsReports.
-            if (typeof stats === 'string') {
-              try {
-                stats = JSON.parse(stats);
-              } catch (e) {
-                failure(e);
-                return;
-              }
+            // StatsReports. While the implementations do try to be faster in
+            // general, the stress is on being faster to pass through the React
+            // Native bridge which is a bottleneck that tends to be visible in
+            // the UI when there is congestion involving UI-related passing.
+            try {
+              const stats = JSON.parse(data);
+              resolve(stats);
+            } catch (e) {
+              reject(e);
             }
-            success(stats);
+          } else {
+            reject(new Error(data));
           }
         });
-    } else {
-      console.warn('RTCPeerConnection getStats not supported');
-    }
+    });
   }
 
   getRemoteStreams() {
