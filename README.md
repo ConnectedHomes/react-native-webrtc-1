@@ -4,14 +4,8 @@
 [![npm downloads](https://img.shields.io/npm/dm/react-native-webrtc.svg?maxAge=2592000)](https://img.shields.io/npm/dm/react-native-webrtc.svg?maxAge=2592000)
 
 A WebRTC module for React Native.
-- Support iOS / Android.
+- Support iOS / Android.  
 - Support Video / Audio / Data Channels.
-
-**NOTE** for Expo users: this plugin doesn't work unless you eject.
-
-## Comunity
-
-Everyone is welcome to you our [Discourse community](https://react-native-webrtc.discourse.group/) to discuss any React Native and WebRTC related topics.
 
 ## WebRTC Revision
 
@@ -25,13 +19,13 @@ Everyone is welcome to you our [Discourse community](https://react-native-webrtc
 | master | [M67](https://chromium.googlesource.com/external/webrtc/+/branch-heads/67)<br>[commit](https://chromium.googlesource.com/external/webrtc/+/89c6af1578dd6ed086fd144fdd19ae5fa7183435)<br>(22779)<br>(+28-23167) | x86_64<br>i386<br>armv7<br>arm64 | armeabi-v7a<br>x86 | :warning: | test me plz |  |
 
 Since `0.53`, we use same branch version number like in webrtc native.
-please see [wiki page](https://github.com/oney/react-native-webrtc/wiki) about revision history
+please see [wiki page](https://github.com/oney/react-native-webrtc/wiki) about revision history 
 
 ### format:
 
 `${branch_name} stable (${branched_from_revision})(+${Cherry-Picks-Num}-${Last-Cherry-Picks-Revision})`
 
-* the webrtc revision in brackets is extracting frrom `Cr-Branched-From` instead `Cr-Commit-Position`
+* the webrtc revision in brackets is extracting frrom `Cr-Branched-From` instead `Cr-Commit-Position`  
 * the number follows with `+` is the additional amount of cherry-picks since `Branched-From` revision.
 
 ### note:
@@ -57,7 +51,7 @@ var {
   getUserMedia,
 } = WebRTC;
 ```
-Anything about using RTCPeerConnection, RTCSessionDescription and RTCIceCandidate is like browser.
+Anything about using RTCPeerConnection, RTCSessionDescription and RTCIceCandidate is like browser.  
 Support most WebRTC APIs, please see the [Document](https://developer.mozilla.org/en-US/docs/Web/API/RTCPeerConnection).
 ```javascript
 var configuration = {"iceServers": [{"url": "stun:stun.l.google.com:19302"}]};
@@ -148,8 +142,8 @@ it back to `true` will re-enable the camera.
 
 author: [@oney](https://github.com/oney)
 
-The demo project is https://github.com/oney/RCTWebRTCDemo
-And you will need a signaling server. I have written a signaling server https://react-native-webrtc.herokuapp.com/ (the repository is https://github.com/oney/react-native-webrtc-server).
+The demo project is https://github.com/oney/RCTWebRTCDemo   
+And you will need a signaling server. I have written a signaling server https://react-native-webrtc.herokuapp.com/ (the repository is https://github.com/oney/react-native-webrtc-server).   
 You can open this website in browser, and then set it as signaling server in the app, and run the app. After you enter the same room ID, the video stream will be connected.
 
 **Demo by Folks**
