@@ -113,6 +113,12 @@ RCT_EXPORT_METHOD(getUserMedia:(NSDictionary *)constraints
     mediaStream:mediaStream];
 }
 
+RCT_EXPORT_METHOD(useMediaOutput) {
+    AVAudioSession *audioSession = [AVAudioSession sharedInstance];
+    NSError *error = nil;
+    [audioSession setMode:AVAudioSessionModeMoviePlayback error: &error];
+}
+
 /**
  * Initializes a new {@link RTCAudioTrack} or a new {@link RTCVideoTrack} which
  * satisfies specific constraints and adds it to a specific

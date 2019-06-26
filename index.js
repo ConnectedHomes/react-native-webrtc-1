@@ -7,6 +7,7 @@ import RTCView from './RTCView';
 import MediaStream from './MediaStream';
 import MediaStreamTrack from './MediaStreamTrack';
 import getUserMedia from './getUserMedia';
+import useMediaOutput from './useMediaOutput';
 
 module.exports = {
   RTCPeerConnection,
@@ -16,4 +17,5 @@ module.exports = {
   MediaStream,
   MediaStreamTrack,
   getUserMedia,
+  useMediaOutput,
 };

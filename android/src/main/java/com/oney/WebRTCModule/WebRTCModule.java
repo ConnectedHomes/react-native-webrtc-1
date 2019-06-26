@@ -1,5 +1,6 @@
 package com.oney.WebRTCModule;
 
+import android.media.AudioAttributes;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.SparseArray;
@@ -24,6 +25,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.webrtc.*;
+import org.webrtc.voiceengine.WebRtcAudioTrack;
 
 @ReactModule(name = "WebRTCModule")
 public class WebRTCModule extends ReactContextBaseJavaModule {
@@ -962,5 +964,10 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
         } else {
             pco.dataChannelSend(dataChannelId, data, type);
         }
+    }
+
+    @ReactMethod
+    public void useMediaOutput() {
+        WebRtcAudioTrack.setAudioTrackUsageAttribute(AudioAttributes.USAGE_MEDIA);
     }
 }
