@@ -1,5 +1,7 @@
 package com.oney.WebRTCModule;
 
+import android.media.AudioAttributes;
+import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.SparseArray;
 
@@ -34,6 +36,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+
+import org.webrtc.*;
+import org.webrtc.audio.AudioDeviceModule;
+import org.webrtc.audio.JavaAudioDeviceModule;
+import org.webrtc.voiceengine.WebRtcAudioTrack;
 
 @ReactModule(name = "WebRTCModule")
 public class WebRTCModule extends ReactContextBaseJavaModule {
@@ -1355,5 +1362,10 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void removeListeners(Integer count) {
         // Keep: Required for RN built in Event Emitter Calls.
+    }
+
+    @ReactMethod
+    public void useAudioOutput(int audioOutputAndroid, int audioOutputIos) {
+        WebRtcAudioTrack.setAudioTrackUsageAttribute(audioOutputAndroid);
     }
 }
