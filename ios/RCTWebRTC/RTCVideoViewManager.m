@@ -342,40 +342,6 @@ typedef NS_ENUM(NSInteger, RTCVideoViewObjectFit) {
             });
         }
     }
-
-<<<<<<< Updated upstream
-}
-#pragma mark - RTCVideoRenderer methods
-
-/**
- * Renders a specific video frame. Delegates to the subview of this instance
- * which implements the actual {@link RTCVideoRenderer}.
- *
- * @param frame The video frame to render.
- */
-- (void)renderFrame:(RTCVideoFrame *)frame {
-    id<RTCVideoRenderer> videoRenderer = self.videoView;
-    if (!firstFrameRendered) {
-      firstFrameRendered = YES;
-      self.onFirstFrame(@{});
-    }
-    if (videoRenderer) {
-      [videoRenderer renderFrame:frame];
-    }
-}
-
-/**
- * Sets the size of the video frame to render.
- *
- * @param size The size of the video frame to render.
- */
-- (void)setSize:(CGSize)size {
-    id<RTCVideoRenderer> videoRenderer = self.videoView;
-    if (videoRenderer) {
-        [videoRenderer setSize:size];
-    }
-=======
->>>>>>> Stashed changes
 }
 
 #pragma mark - RTCVideoViewDelegate methods
