@@ -1,6 +1,8 @@
 package com.oney.WebRTCModule;
 
 import android.media.AudioAttributes;
+import android.media.AudioManager;
+import android.content.Context;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.SparseArray;
@@ -25,6 +27,7 @@ import java.util.Map;
 
 import org.webrtc.*;
 import org.webrtc.voiceengine.WebRtcAudioTrack;
+import org.webrtc.voiceengine.WebRtcAudioUtils;
 
 @ReactModule(name = "WebRTCModule")
 public class WebRTCModule extends ReactContextBaseJavaModule {
@@ -33,6 +36,7 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
     PeerConnectionFactory mFactory;
     private final SparseArray<PeerConnectionObserver> mPeerConnectionObservers;
     final Map<String, MediaStream> localStreams;
+    private AudioManager audioManager;
 
     /**
      * The implementation of {@code getUserMedia} extracted into a separate file
@@ -42,6 +46,8 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
 
     public WebRTCModule(ReactApplicationContext reactContext) {
         super(reactContext);
+
+        audioManager = ((AudioManager) reactContext.getSystemService(Context.AUDIO_SERVICE));
 
         mPeerConnectionObservers = new SparseArray<>();
         localStreams = new HashMap<>();
@@ -966,5 +972,8 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void useAudioOutput(int audioOutputAndroid) {
         WebRtcAudioTrack.setAudioTrackUsageAttribute(audioOutputAndroid);
+        audioManager.setMode(AudioManager.MODE_CURRENT);
+        WebRtcAudioUtils.setWebRtcBasedAcousticEchoCanceler(true);
+        WebRtcAudioUtils.setWebRtcBasedNoiseSuppressor(true);
     }
 }
