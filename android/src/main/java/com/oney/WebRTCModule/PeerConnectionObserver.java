@@ -5,6 +5,17 @@ import android.util.Log;
 import android.util.SparseArray;
 
 import androidx.annotation.Nullable;
+import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothHeadset;
+import android.content.BroadcastReceiver;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
+import android.os.Handler;
+import android.content.Context;
+import android.media.AudioManager;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
@@ -40,6 +51,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+
+import com.facebook.react.bridge.UiThreadUtil;
+
 
 class PeerConnectionObserver implements PeerConnection.Observer {
     private final static String TAG = WebRTCModule.TAG;
@@ -569,6 +583,19 @@ class PeerConnectionObserver implements PeerConnection.Observer {
             params.putInt("pcId", this.id);
 
             webRTCModule.sendEvent("peerConnectionOnTrack", params);
+            if (android.os.Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                return;
+            }
+
+           
+            UiThreadUtil.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    final Handler mHandler = new Handler();
+                    // First call not always succeeds
+                    mHandler.postDelayed(() -> setSpeakerOn(true), 500);
+                }
+            });
         });
     }
 
@@ -620,6 +647,17 @@ class PeerConnectionObserver implements PeerConnection.Observer {
                 return "closed";
         }
         return null;
+    }
+
+    private void setSpeakerOn(boolean on) {
+        AudioManager audioManager = (AudioManager) webRTCModule.getCurrentActivityHack().getSystemService(Context.AUDIO_SERVICE);
+
+        boolean wasOn = audioManager.isSpeakerphoneOn();
+        if (wasOn == on) {
+            return;
+        }
+        audioManager.setMode(AudioManager.MODE_IN_CALL);
+        audioManager.setSpeakerphoneOn(true);
     }
 
     @Nullable

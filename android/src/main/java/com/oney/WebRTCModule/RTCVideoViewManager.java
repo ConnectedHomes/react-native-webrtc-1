@@ -3,7 +3,7 @@ package com.oney.WebRTCModule;
 import com.facebook.react.bridge.ReactContext;
 import java.util.Map;
 
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 
 import com.facebook.react.uimanager.annotations.ReactProp;
 import com.facebook.react.common.MapBuilder;
