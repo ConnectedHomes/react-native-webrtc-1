@@ -593,10 +593,37 @@ class PeerConnectionObserver implements PeerConnection.Observer {
                 public void run() {
                     final Handler mHandler = new Handler();
                     // First call not always succeeds
-                    mHandler.postDelayed(() -> setSpeakerOn(true), 500);
+                    setSpeakerOn(!isBluetoothHeadsetConnected());
+                    startListeningHeadsetChanges();
                 }
             });
         });
+    }
+
+    public static boolean isBluetoothHeadsetConnected() {
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        return mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()
+            && mBluetoothAdapter.getProfileConnectionState(BluetoothHeadset.HEADSET) == BluetoothHeadset.STATE_CONNECTED;
+    }
+
+    public final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
+                setSpeakerOn(false);
+            } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
+                setSpeakerOn(true);
+            }
+        }
+    };
+
+    private void startListeningHeadsetChanges() {
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);
+        filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECT_REQUESTED);
+        filter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);
+        getContext().registerReceiver(mReceiver, filter);
     }
 
     /**
@@ -650,14 +677,19 @@ class PeerConnectionObserver implements PeerConnection.Observer {
     }
 
     private void setSpeakerOn(boolean on) {
-        AudioManager audioManager = (AudioManager) webRTCModule.getCurrentActivityHack().getSystemService(Context.AUDIO_SERVICE);
+        final Activity context = getContext();
+        context.setVolumeControlStream(AudioManager.STREAM_VOICE_CALL);
+        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
 
         boolean wasOn = audioManager.isSpeakerphoneOn();
         if (wasOn == on) {
             return;
         }
-        audioManager.setMode(AudioManager.MODE_IN_CALL);
-        audioManager.setSpeakerphoneOn(true);
+        audioManager.setSpeakerphoneOn(on);
+    }
+
+    private Activity getContext() {
+        return webRTCModule.getCurrentActivityHack();
     }
 
     @Nullable
