@@ -593,7 +593,7 @@ class PeerConnectionObserver implements PeerConnection.Observer {
                 public void run() {
                     final Handler mHandler = new Handler();
                     // First call not always succeeds
-                     setSpeakerOn(!isBluetoothHeadsetConnected() && !isWiredHeadsetConnected());
+                    webRTCModule.setSpeakerOn(!isBluetoothHeadsetConnected() && !isWiredHeadsetConnected());
                     startListeningHeadsetChanges();
                 }
             });
@@ -617,9 +617,9 @@ class PeerConnectionObserver implements PeerConnection.Observer {
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
             if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)) {
-                setSpeakerOn(false);
+                webRTCModule.setSpeakerOn(false);
             } else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)) {
-                setSpeakerOn(true);
+                webRTCModule.setSpeakerOn(true);
             }
         }
     };
@@ -632,10 +632,10 @@ class PeerConnectionObserver implements PeerConnection.Observer {
                 int state = intent.getIntExtra("state", -1);
                 switch (state) {
                     case 0:
-                        setSpeakerOn(true);
+                        webRTCModule.setSpeakerOn(true);
                         break;
                     case 1:
-                        setSpeakerOn(false);
+                        webRTCModule.setSpeakerOn(false);
                         break;
                     default:
                         Log.d(TAG, "I have no idea what the headset state is");
@@ -703,18 +703,6 @@ class PeerConnectionObserver implements PeerConnection.Observer {
                 return "closed";
         }
         return null;
-    }
-
-    private void setSpeakerOn(boolean on) {
-        final Activity context = getContext();
-        context.setVolumeControlStream(AudioManager.STREAM_VOICE_CALL);
-        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-
-        boolean wasOn = audioManager.isSpeakerphoneOn();
-        if (wasOn == on) {
-            return;
-        }
-        audioManager.setSpeakerphoneOn(on);
     }
 
     private Activity getContext() {

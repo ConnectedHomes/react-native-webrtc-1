@@ -43,6 +43,9 @@ import org.webrtc.audio.JavaAudioDeviceModule;
 import org.webrtc.voiceengine.WebRtcAudioTrack;
 
 import android.app.Activity;
+import android.content.Context;
+import android.media.AudioManager;
+import com.facebook.react.bridge.Promise;
 
 @ReactModule(name = "WebRTCModule")
 public class WebRTCModule extends ReactContextBaseJavaModule {
@@ -1378,5 +1381,31 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void useAudioOutput(int audioOutputAndroid) {
         WebRtcAudioTrack.setAudioTrackUsageAttribute(audioOutputAndroid);
+    }
+
+    void setSpeakerOn(boolean on) {
+        Activity context = getCurrentActivityHack();
+        context.setVolumeControlStream(AudioManager.STREAM_VOICE_CALL);
+        AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+
+        boolean wasOn = audioManager.isSpeakerphoneOn();
+        if (wasOn == on) {
+            return;
+        }
+        audioManager.setSpeakerphoneOn(on);
+    }
+
+    @ReactMethod
+    public void startAudio(Promise promise) {
+        Log.d(TAG, "switch to ear speakers");
+        setSpeakerOn(false);
+        promise.resolve(Boolean.TRUE);
+    }
+
+    @ReactMethod
+    public void stopAudio(Promise promise) {
+        Log.d(TAG, "switch to loud speakers");
+        setSpeakerOn(true);
+        promise.resolve(Boolean.TRUE);
     }
 }
