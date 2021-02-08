@@ -1,6 +1,7 @@
 package com.oney.WebRTCModule;
 
-import android.media.AudioAttributes;
+import android.content.Context;
+import android.media.AudioManager;
 import android.support.annotation.Nullable;
 import android.util.Log;
 import android.util.SparseArray;
@@ -987,7 +988,29 @@ public class WebRTCModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void useAudioOutput(int audioOutputAndroid) {
-        WebRtcAudioTrack.setAudioTrackUsageAttribute(audioOutputAndroid);
+    public void useAudioOutput(int audioMode, int audioOutput) {
+        ThreadUtils.runOnExecutor(() -> {
+            WebRtcAudioTrack.setAudioTrackUsageAttribute(audioOutput);
+            AudioManager audioManager = (AudioManager) ContextUtils.getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+            audioManager.setMode(audioMode);
+        });
+    }
+
+    @ReactMethod
+    public void getAudioManagerMode(Callback callback) {
+
+        ThreadUtils.runOnExecutor(() -> {
+            AudioManager audioManager = (AudioManager) ContextUtils.getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+            String result = "N/A";
+            switch (audioManager.getMode()) {
+                case -2: result = "MODE_INVALID"; break;
+                case -1: result = "MODE_CURRENT"; break;
+                case 0: result = "MODE_NORMAL"; break;
+                case 1: result = "MODE_RINGTONE"; break;
+                case 2: result = "MODE_IN_CALL"; break;
+                case 3: result = "MODE_IN_COMMUNICATION"; break;
+            }
+            callback.invoke(result);
+        });
     }
 }

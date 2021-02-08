@@ -11,6 +11,16 @@ const MEDIA_DEVICES_EVENTS = [
     'devicechange'
 ];
 
+// Source https://developer.android.com/reference/android/media/AudioManager#MODE_IN_COMMUNICATION
+export const AudioModeAndroid = {
+    MODE_INVALID: -2,
+    MODE_CURRENT: -1,
+    MODE_NORMAL: 0,
+    MODE_RINGTONE: 1,
+    MODE_IN_CALL: 2,
+    MODE_IN_COMMUNICATION: 3,
+}
+
 // Source: https://developer.android.com/reference/android/media/AudioAttributes
 export const AudioUsageAndroid = {
     USAGE_ALARM: 0x4,
@@ -90,9 +100,17 @@ class MediaDevices extends EventTarget(MEDIA_DEVICES_EVENTS) {
 
     useAudioOutput(audioUsageAndroid, audioUsageIos) {
         if (Platform.OS === 'android') {
-            WebRTCModule.useAudioOutput(audioUsageAndroid);
+            WebRTCModule.useAudioOutput(audioUsageAndroid.mode, audioUsageAndroid.usage);
         } else if (Platform.OS === 'ios') {
             WebRTCModule.useAudioOutput(audioUsageIos.mode, audioUsageIos.category, audioUsageIos.categoryOptions);
+        }
+    }
+
+    getAudioManagerMode() {
+        if (Platform.OS === 'android') {
+            return new Promise(resolve => WebRTCModule.getAudioManagerMode(resolve));
+        } else {
+            return new Promise(resolve => resolve('N/A for iOS'));
         }
     }
 }
