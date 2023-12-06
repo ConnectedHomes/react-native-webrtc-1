@@ -11,6 +11,12 @@ if (WebRTCModule === null) {
 import { setupNativeEvents } from './EventEmitter';
 import Logger from './Logger';
 import mediaDevices from './MediaDevices';
+import {    
+    AudioUsageAndroid,
+    AvAudioSessionMode,
+    AvAudioSessionCategory,
+    AvAudioSessionCategoryOptions,
+} from './MediaDevices';
 import MediaStream from './MediaStream';
 import MediaStreamTrack from './MediaStreamTrack';
 import MediaStreamTrackEvent from './MediaStreamTrackEvent';
@@ -31,6 +37,10 @@ Logger.enable(`${Logger.ROOT_PREFIX}:*`);
 setupNativeEvents();
 
 export {
+    AudioUsageAndroid,
+    AvAudioSessionMode,
+    AvAudioSessionCategory,
+    AvAudioSessionCategoryOptions,
     RTCIceCandidate,
     RTCPeerConnection,
     RTCSessionDescription,
@@ -75,4 +85,8 @@ function registerGlobals(): void {
     global.RTCRtpReceiver = RTCRtpReceiver;
     global.RTCRtpSender = RTCRtpSender;
     global.RTCErrorEvent = RTCErrorEvent;
+    global.AudioUsageAndroid = AudioUsageAndroid;
+    global.AvAudioSessionMode = AvAudioSessionMode;
+    global.AvAudioSessionCategory = AvAudioSessionCategory;
+    global.AvAudioSessionCategoryOptions = AvAudioSessionCategoryOptions;
 }

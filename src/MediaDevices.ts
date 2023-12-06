@@ -1,6 +1,6 @@
 'use strict';
 import { EventTarget, Event, defineEventAttribute } from 'event-target-shim';
-import { NativeModules } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
 import getDisplayMedia from './getDisplayMedia';
 import getUserMedia from './getUserMedia';
